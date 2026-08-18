@@ -287,20 +287,90 @@ generate.addEventListener(
   async () => {
 
     if (!identity.files[0]) {
-
-      status.textContent =
-        "اختر صورتك أولاً.";
-
+      status.textContent = "اختر صورتك أولاً.";
       return;
-
     }
 
     status.textContent =
-      "سيتم ربط التوليد بالـBackend في الخطوة التالية.";
+      "جارٍ إرسال الصورة إلى الخادم…";
+
+    result.style.display = "none";
+
+    try {
+
+      const identityImage =
+        await readImage(identity.files[0]);
+
+      const referenceImages = [];
+
+      const files =
+        [...references.files].slice(0, 6);
+
+      for (const file of files) {
+
+        referenceImages.push(
+          await readImage(file)
+        );
+
+      }
+
+      const response =
+        await fetch(
+          "/.netlify/functions/generate",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+
+              identityImage,
+
+              referenceImages,
+
+              prompt:
+                document.getElementById(
+                  "prompt"
+                ).value
+
+            })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error ||
+          "حدث خطأ أثناء التوليد"
+        );
+
+      }
+
+      result.src =
+        data.image;
+
+      result.style.display =
+        "block";
+
+      status.textContent =
+        "تم التوليد بنجاح ✅";
+
+    } catch (error) {
+
+      status.textContent =
+        "خطأ: " +
+        error.message;
+
+    }
 
   }
 );
-
 </script>
 
 </body>
