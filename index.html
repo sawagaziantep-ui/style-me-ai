@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STYLE ME AI</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #0d0d0f;
+      color: #f5f5f5;
+      font-family: Arial, sans-serif;
+    }
+
+    main {
+      max-width: 760px;
+      margin: auto;
+      padding: 20px;
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 5px;
+    }
+
+    .subtitle {
+      color: #999;
+      margin-bottom: 25px;
+    }
+
+    .card {
+      background: #17171a;
+      border: 1px solid #2b2b30;
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      margin: 12px 0 7px;
+      font-weight: bold;
+    }
+
+    input,
+    textarea,
+    button {
+      width: 100%;
+      padding: 13px;
+      border-radius: 13px;
+      border: 1px solid #38383f;
+      background: #222227;
+      color: white;
+      font-size: 16px;
+    }
+
+    button {
+      background: white;
+      color: black;
+      border: none;
+      font-weight: bold;
+      margin-top: 15px;
+    }
+
+    .preview {
+      display: none;
+      width: 100%;
+      max-height: 500px;
+      object-fit: contain;
+      border-radius: 15px;
+      margin-top: 12px;
+    }
+
+    .references {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .reference {
+      aspect-ratio: 1;
+      border: 1px dashed #555;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .reference img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .status {
+      margin-top: 12px;
+      color: #aaa;
+      min-height: 24px;
+    }
+  </style>
+</head>
+
+<body>
+
+<main>
+
+  <h1>STYLE ME AI</h1>
+
+  <div class="subtitle">
+    AI Fashion Image Studio
+  </div>
+
+  <div class="card">
+
+    <label>صورتك الأساسية</label>
+
+    <input
+      id="identity"
+      type="file"
+      accept="image/*"
+    >
+
+    <img
+      id="identityPreview"
+      class="preview"
+    >
+
+  </div>
+
+  <div class="card">
+
+    <label>
+      الصور المرجعية — حتى 6 صور
+    </label>
+
+    <input
+      id="references"
+      type="file"
+      accept="image/*"
+      multiple
+    >
+
+    <div
+      id="referenceGrid"
+      class="references"
+    ></div>
+
+  </div>
+
+  <div class="card">
+
+    <label>
+      تعليمات الصورة
+    </label>
+
+    <textarea
+      id="prompt"
+      rows="7"
+    >Create a photorealistic fashion portrait.
+
+Use the identity image as the authoritative source of the person's identity.
+
+Preserve the person's facial identity, facial proportions, natural skin characteristics and overall appearance.
+
+Use the reference images only for visual attributes such as clothing, pose, environment, lighting and photographic style.
+
+Do not transfer the identity of people appearing in the reference images.
+
+Create a highly realistic photographic result with natural skin texture, realistic lighting and detailed clothing.</textarea>
+
+    <button id="generate">
+      ✨ GENERATE
+    </button>
+
+    <div
+      id="status"
+      class="status"
+    ></div>
+
+    <img
+      id="result"
+      class="preview"
+    >
+
+  </div>
+
+</main>
+
+<script>
+
+const identity =
+  document.getElementById("identity");
+
+const references =
+  document.getElementById("references");
+
+const identityPreview =
+  document.getElementById("identityPreview");
+
+const referenceGrid =
+  document.getElementById("referenceGrid");
+
+const generate =
+  document.getElementById("generate");
+
+const status =
+  document.getElementById("status");
+
+const result =
+  document.getElementById("result");
+
+
+function readImage(file) {
+
+  return new Promise((resolve, reject) => {
+
+    const reader = new FileReader();
+
+    reader.onload = () =>
+      resolve(reader.result);
+
+    reader.onerror = reject;
+
+    reader.readAsDataURL(file);
+
+  });
+
+}
+
+
+identity.addEventListener(
+  "change",
+  async () => {
+
+    if (!identity.files[0])
+      return;
+
+    identityPreview.src =
+      await readImage(identity.files[0]);
+
+    identityPreview.style.display =
+      "block";
+
+  }
+);
+
+
+references.addEventListener(
+  "change",
+  async () => {
+
+    referenceGrid.innerHTML = "";
+
+    const files =
+      [...references.files].slice(0, 6);
+
+    for (const file of files) {
+
+      const container =
+        document.createElement("div");
+
+      container.className =
+        "reference";
+
+      const img =
+        document.createElement("img");
+
+      img.src =
+        await readImage(file);
+
+      container.appendChild(img);
+
+      referenceGrid.appendChild(container);
+
+    }
+
+  }
+);
+
+
+generate.addEventListener(
+  "click",
+  async () => {
+
+    if (!identity.files[0]) {
+
+      status.textContent =
+        "اختر صورتك أولاً.";
+
+      return;
+
+    }
+
+    status.textContent =
+      "سيتم ربط التوليد بالـBackend في الخطوة التالية.";
+
+  }
+);
+
+</script>
+
+</body>
+</html>
