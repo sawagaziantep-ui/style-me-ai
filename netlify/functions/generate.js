@@ -13,7 +13,6 @@ exports.handler = async (event) => {
 
     const {
       identityImage,
-      referenceImages = [],
       prompt = ""
     } = body;
 
@@ -38,49 +37,93 @@ exports.handler = async (event) => {
     }
 
     /*
-      Provider-Agnostic boundary.
+      Provider-Agnostic configuration
+    */
 
-      الواجهة لا تعرف أي مزود نستخدم.
-      لاحقًا نستطيع استبدال Hugging Face
-      بـ Seedream أو Replicate أو غيرهما.
+    const MODEL =
+      "black-forest-labs/FLUX.1-Kontext-dev";
+
+    /*
+      Convert the data URL received from the browser
+      into binary image data.
+    */
+
+    const match =
+      identityImage.match(
+        /^data:(image\/[^;]+);base64,(.+)$/
+      );
+
+    if (!match) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({
+          error: "Invalid identity image format"
+        })
+      };
+    }
+
+    const contentType = match[1];
+
+    const imageBuffer =
+      Buffer.from(match[2], "base64");
+
+    /*
+      Strong identity-preservation instructions.
     */
 
     const finalPrompt = `
+Use the provided image as the authoritative source
+of the subject's identity.
+
+Preserve the exact identity of the person.
+
+Maintain facial structure, facial proportions,
+eyes, nose, mouth, jawline, cheek structure,
+skin tone, natural skin texture, hairline,
+and natural facial asymmetries.
+
+Do not beautify, redesign, stylize, age,
+de-age, masculinize, feminize, or reinterpret
+the person's face.
+
+Do not create a lookalike.
+
+The result must clearly represent the same person.
+
+Only modify the visual attributes explicitly
+requested by the user.
+
+Maintain realistic human anatomy,
+natural skin texture, realistic hair,
+and photographic lighting.
+
+User instructions:
+
 ${prompt}
-
-Identity image is the authoritative source
-for the subject's identity.
-
-Preserve facial identity and natural facial
-proportions.
-
-Reference images must NOT transfer the identity
-of people appearing inside them.
-
-Use references only as visual guidance.
 `;
 
     /*
-      هذا أول اختبار للاتصال بالمزود.
-      لا نعتبره بعد النسخة النهائية
-      للحفاظ على الهوية أو المراجع المتعددة.
+      Hugging Face Inference Providers
+      Image-to-Image request.
     */
 
-    const response = await fetch(
-      "https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell",
-      {
-        method: "POST",
+    const response =
+      await fetch(
+        `https://router.huggingface.co/hf-inference/models/${MODEL}`,
+        {
+          method: "POST",
 
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
 
-        body: JSON.stringify({
-          inputs: finalPrompt
-        })
-      }
-    );
+            "Content-Type":
+              contentType
+          },
+
+          body: imageBuffer
+        }
+      );
 
     if (!response.ok) {
 
@@ -98,12 +141,12 @@ Use references only as visual guidance.
       };
     }
 
-    const buffer =
+    const outputBuffer =
       Buffer.from(
         await response.arrayBuffer()
       );
 
-    const contentType =
+    const outputType =
       response.headers.get(
         "content-type"
       ) || "image/png";
@@ -123,10 +166,10 @@ Use references only as visual guidance.
           "huggingface",
 
         model:
-          "black-forest-labs/FLUX.1-schnell",
+          MODEL,
 
         image:
-          `data:${contentType};base64,${buffer.toString("base64")}`
+          `data:${outputType};base64,${outputBuffer.toString("base64")}`
 
       })
 
