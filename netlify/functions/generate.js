@@ -1,3 +1,5 @@
+const { InferenceClient } = require("@huggingface/inference");
+
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return {
@@ -9,12 +11,8 @@ exports.handler = async (event) => {
   }
 
   try {
-    const body = JSON.parse(event.body || "{}");
-
-    const {
-      identityImage,
-      prompt = ""
-    } = body;
+    const { identityImage, prompt = "" } =
+      JSON.parse(event.body || "{}");
 
     if (!identityImage) {
       return {
@@ -36,123 +34,71 @@ exports.handler = async (event) => {
       };
     }
 
-    /*
-      Provider-Agnostic configuration
-    */
-
-    const MODEL =
-      "black-forest-labs/FLUX.1-Kontext-dev";
-
-    /*
-      Convert the data URL received from the browser
-      into binary image data.
-    */
-
-    const match =
-      identityImage.match(
-        /^data:(image\/[^;]+);base64,(.+)$/
-      );
+    const match = identityImage.match(
+      /^data:(image\/[^;]+);base64,(.+)$/
+    );
 
     if (!match) {
       return {
         statusCode: 400,
         body: JSON.stringify({
-          error: "Invalid identity image format"
+          error: "Invalid image format"
         })
       };
     }
-
-    const contentType = match[1];
 
     const imageBuffer =
       Buffer.from(match[2], "base64");
 
-    /*
-      Strong identity-preservation instructions.
-    */
+    const client = new InferenceClient(token);
 
     const finalPrompt = `
-Use the provided image as the authoritative source
-of the subject's identity.
+Use the provided image as the authoritative
+identity reference.
 
-Preserve the exact identity of the person.
+Preserve the same person.
 
-Maintain facial structure, facial proportions,
-eyes, nose, mouth, jawline, cheek structure,
-skin tone, natural skin texture, hairline,
-and natural facial asymmetries.
-
-Do not beautify, redesign, stylize, age,
-de-age, masculinize, feminize, or reinterpret
-the person's face.
+Preserve facial identity, facial geometry,
+facial proportions, eyes, nose, mouth,
+jawline, skin tone, natural skin texture,
+hairline and natural asymmetry.
 
 Do not create a lookalike.
+Do not beautify or redesign the face.
+Do not change the person's identity.
 
-The result must clearly represent the same person.
+Only change the elements requested below.
 
-Only modify the visual attributes explicitly
-requested by the user.
+Maintain realistic anatomy, realistic skin,
+natural lighting and photographic detail.
 
-Maintain realistic human anatomy,
-natural skin texture, realistic hair,
-and photographic lighting.
-
-User instructions:
-
+USER REQUEST:
 ${prompt}
 `;
 
-    /*
-      Hugging Face Inference Providers
-      Image-to-Image request.
-    */
+    const output =
+      await client.imageToImage({
+        model:
+          "black-forest-labs/FLUX.1-Kontext-dev",
 
-    const response =
-      await fetch(
-        `https://router.huggingface.co/hf-inference/models/${MODEL}`,
-        {
-          method: "POST",
+        inputs: imageBuffer,
 
-          headers: {
-            Authorization:
-              `Bearer ${token}`,
+        parameters: {
+          prompt: finalPrompt
+        },
 
-            "Content-Type":
-              contentType
-          },
-
-          body: imageBuffer
-        }
-      );
-
-    if (!response.ok) {
-
-      const errorText =
-        await response.text();
-
-      return {
-        statusCode: response.status,
-
-        body: JSON.stringify({
-          error:
-            "Hugging Face error: " +
-            errorText
-        })
-      };
-    }
+        provider: "auto"
+      });
 
     const outputBuffer =
       Buffer.from(
-        await response.arrayBuffer()
+        await output.arrayBuffer()
       );
 
-    const outputType =
-      response.headers.get(
-        "content-type"
-      ) || "image/png";
+    const contentType =
+      output.type || "image/png";
 
     return {
-
       statusCode: 200,
 
       headers: {
@@ -161,33 +107,27 @@ ${prompt}
       },
 
       body: JSON.stringify({
-
-        provider:
-          "huggingface",
-
+        provider: "auto",
         model:
-          MODEL,
+          "black-forest-labs/FLUX.1-Kontext-dev",
 
         image:
-          `data:${outputType};base64,${outputBuffer.toString("base64")}`
-
+          `data:${contentType};base64,${outputBuffer.toString("base64")}`
       })
-
     };
 
   } catch (error) {
 
-    return {
+    console.error(error);
 
+    return {
       statusCode: 500,
 
       body: JSON.stringify({
         error:
           error.message ||
-          "Unknown server error"
+          "Image generation failed"
       })
-
     };
-
   }
 };
